@@ -1,6 +1,7 @@
 package dev.hetils.worldmole;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
@@ -14,17 +15,19 @@ import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.math.Vector3;
 import com.sk89q.worldedit.regions.Region;
 import com.sk89q.worldedit.session.SessionManager;
+import com.sk89q.worldedit.world.block.BlockState;
 import com.sk89q.worldedit.world.block.BlockTypes;
 import net.minecraft.ChatFormatting;
+import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.arguments.blocks.BlockStateArgument;
 import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Registry;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
@@ -72,15 +75,19 @@ public class Worldmole
 //                    .createCompositeState(true)
 //    );
 
-    public static int mole(CommandContext<CommandSourceStack> ctx, double radius, double precision) {
+    public static int mole(CommandContext<CommandSourceStack> ctx, double radius, double precision, boolean cube, BlockState state) {
         LocalSession ls;
         Player p;
 
         double dx, dy, dz, bx, by, bz;
 
+        CommandSourceStack source = ctx.getSource();
+        if (source == null)
+            return 1;
+
         try {
 
-            ServerPlayer sp = ctx.getSource().getPlayer();
+            ServerPlayer sp = source.getPlayer();
             if (sp == null)
                 throw new NullPointerException("ServerPlayer is null");
             p = ForgeAdapter.adaptPlayer(sp);
@@ -94,7 +101,6 @@ public class Worldmole
             bz = v1.getZ();
 
             Region r = ls.getSelection(p.getWorld());
-
             BlockVector3 min = r.getMinimumPoint();
 
             dx = ((int) v1.getX()) - min.getX() == 0 ? r.getWidth() : -r.getWidth();
@@ -102,13 +108,14 @@ public class Worldmole
             dz = ((int) v1.getZ()) - min.getZ() == 0 ? r.getLength() : -r.getLength();
 
         } catch (NullPointerException np) {
-            throw new RuntimeException(np);
+            source.sendFailure(Component.literal("An error occurred during fetching and converting selection points").withStyle(ChatFormatting.RED));
+            return 0;
         } catch (Exception e) {
-            ctx.getSource().sendFailure(Component.literal("Make a line selection first").withStyle(ChatFormatting.RED));
-            return 1;
+            source.sendFailure(Component.literal("Make a line selection first").withStyle(ChatFormatting.RED));
+            return 0;
         }
 
-        ServerLevel level = ctx.getSource().getLevel();
+        ServerLevel level = source.getLevel();
 
         double cx, cy, cz;
 
@@ -124,7 +131,11 @@ public class Worldmole
 
         double lx = 0, ly = 0, lz = 0;
 
-        try (EditSession es = ls.createEditSession(p)) {
+        boolean notAirState = state != BlockTypes.AIR.getDefaultState();
+
+        try {
+
+            EditSession es = ls.createEditSession(p);
             int count = 0;
             double dist = precision, step = precision/10d;
 
@@ -142,11 +153,10 @@ public class Worldmole
                     for (double j = -radius; j <= radius; j++)
                         for (double k = -radius; k <= radius; k++)
                             for (double l = -radius; l <= radius; l++)
-                                if (Math.sqrt(j * j + k * k + l * l) < radius) {
+                                if (cube || Math.sqrt(j * j + k * k + l * l) < radius) {
                                     BlockPos pos = new BlockPos((int) (bx + x + j), (int) (by + y + k), (int) (bz + z + l));
-                                    BlockState current = level.getBlockState(pos);
-                                    if (!current.isAir()) {
-                                        es.setBlock(BlockVector3.at(pos.getX(), pos.getY(), pos.getZ()), BlockTypes.AIR.getDefaultState());
+                                    if (notAirState || !level.getBlockState(pos).isAir()) {
+                                        es.setBlock(BlockVector3.at(pos.getX(), pos.getY(), pos.getZ()), state);
                                         count++;
                                     }
                                 }
@@ -160,10 +170,12 @@ public class Worldmole
 
             ls.remember(es);
             final int fcount = count;
-            ctx.getSource().sendSuccess(() -> Component.literal("Operation completed (" + fcount + " blocks affected)").withStyle(ChatFormatting.LIGHT_PURPLE), false);
+            source.sendSuccess(() -> Component.literal("Operation completed (" + fcount + " blocks affected)").withStyle(ChatFormatting.LIGHT_PURPLE), false);
+            es.close();
 
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            source.sendFailure(Component.literal("An error occurred during replacement").withStyle(ChatFormatting.RED));
+            return 0;
         }
         return 1;
     }
@@ -173,17 +185,32 @@ public class Worldmole
 
     private void onCommandRegister(@NotNull RegisterCommandsEvent event) {
         CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
+        CommandBuildContext context = event.getBuildContext();
 
         dispatcher.register(Commands.literal("/mole")
                 .requires(cs -> cs.hasPermission(2)) // 2 = OP level
                 .then(Commands.argument("radius", DoubleArgumentType.doubleArg(1))
                 .executes(ctx ->
-                        mole(ctx, DoubleArgumentType.getDouble(ctx, "radius"), .1)
+                        mole(ctx, DoubleArgumentType.getDouble(ctx, "radius"), .1, false, BlockTypes.AIR.getDefaultState())
                 )
                 .then(Commands.argument("precision", DoubleArgumentType.doubleArg(0.0001))
                 .executes(ctx ->
-                    mole(ctx, DoubleArgumentType.getDouble(ctx, "radius"), DoubleArgumentType.getDouble(ctx, "precision"))
-                )))
+                    mole(ctx, DoubleArgumentType.getDouble(ctx, "radius"), DoubleArgumentType.getDouble(ctx, "precision"), false, BlockTypes.AIR.getDefaultState())
+                )
+                .then(Commands.argument("cube", BoolArgumentType.bool())
+                .executes(ctx ->
+                        mole(ctx, DoubleArgumentType.getDouble(ctx, "radius"), DoubleArgumentType.getDouble(ctx, "precision"), BoolArgumentType.getBool(ctx, "cube"), BlockTypes.AIR.getDefaultState())
+                )
+                .then(Commands.argument("material", BlockStateArgument.block(context))
+                .executes(ctx ->
+                    mole(ctx, DoubleArgumentType.getDouble(ctx, "radius"), DoubleArgumentType.getDouble(ctx, "precision"), false, ForgeAdapter.adapt(BlockStateArgument.getBlock(ctx, "material").getState()))
+                ))
+                .then(Commands.argument("block", BlockPosArgument.blockPos())
+                .executes(ctx -> {
+                    ServerLevel level = ctx.getSource().getLevel();
+                    net.minecraft.world.level.block.state.BlockState state = level.getBlockState(BlockPosArgument.getBlockPos(ctx, "block"));
+                    return mole(ctx, DoubleArgumentType.getDouble(ctx, "radius"), DoubleArgumentType.getDouble(ctx, "precision"), false, ForgeAdapter.adapt(state));
+                })))))
         );
 
         dispatcher.register(Commands.literal("/ctrl")
