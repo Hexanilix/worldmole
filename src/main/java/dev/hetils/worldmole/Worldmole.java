@@ -24,7 +24,6 @@ import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.blocks.BlockStateArgument;
 import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Registry;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -69,7 +68,7 @@ public class Worldmole
 //            256, false, true,
 //            RenderType.CompositeState.builder()
 //                    .setShaderState(new RenderStateShard.ShaderStateShard())
-////                    .setLineState(new RenderStateShard.LineStateShard())
+    ////                    .setLineState(new RenderStateShard.LineStateShard())
 //                    .setLayeringState(new RenderStateShard.LayeringStateShard("green_wire", () -> {}, () -> {}))
 //                    .setTransparencyState(new RenderStateShard.TransparencyStateShard("green_wire", () -> {}, () -> {}))
 //                    .createCompositeState(true)
@@ -190,27 +189,27 @@ public class Worldmole
         dispatcher.register(Commands.literal("/mole")
                 .requires(cs -> cs.hasPermission(2)) // 2 = OP level
                 .then(Commands.argument("radius", DoubleArgumentType.doubleArg(1))
-                .executes(ctx ->
-                        mole(ctx, DoubleArgumentType.getDouble(ctx, "radius"), .1, false, BlockTypes.AIR.getDefaultState())
-                )
-                .then(Commands.argument("precision", DoubleArgumentType.doubleArg(0.0001))
-                .executes(ctx ->
-                    mole(ctx, DoubleArgumentType.getDouble(ctx, "radius"), DoubleArgumentType.getDouble(ctx, "precision"), false, BlockTypes.AIR.getDefaultState())
-                )
-                .then(Commands.argument("cube", BoolArgumentType.bool())
-                .executes(ctx ->
-                        mole(ctx, DoubleArgumentType.getDouble(ctx, "radius"), DoubleArgumentType.getDouble(ctx, "precision"), BoolArgumentType.getBool(ctx, "cube"), BlockTypes.AIR.getDefaultState())
-                )
-                .then(Commands.argument("material", BlockStateArgument.block(context))
-                .executes(ctx ->
-                    mole(ctx, DoubleArgumentType.getDouble(ctx, "radius"), DoubleArgumentType.getDouble(ctx, "precision"), false, ForgeAdapter.adapt(BlockStateArgument.getBlock(ctx, "material").getState()))
-                ))
-                .then(Commands.argument("block", BlockPosArgument.blockPos())
-                .executes(ctx -> {
-                    ServerLevel level = ctx.getSource().getLevel();
-                    net.minecraft.world.level.block.state.BlockState state = level.getBlockState(BlockPosArgument.getBlockPos(ctx, "block"));
-                    return mole(ctx, DoubleArgumentType.getDouble(ctx, "radius"), DoubleArgumentType.getDouble(ctx, "precision"), false, ForgeAdapter.adapt(state));
-                })))))
+                        .executes(ctx ->
+                                mole(ctx, DoubleArgumentType.getDouble(ctx, "radius"), .1, false, BlockTypes.AIR.getDefaultState())
+                        )
+                        .then(Commands.argument("precision", DoubleArgumentType.doubleArg(0.0001))
+                                .executes(ctx ->
+                                        mole(ctx, DoubleArgumentType.getDouble(ctx, "radius"), DoubleArgumentType.getDouble(ctx, "precision"), false, BlockTypes.AIR.getDefaultState())
+                                )
+                                .then(Commands.argument("cube", BoolArgumentType.bool())
+                                        .executes(ctx ->
+                                                mole(ctx, DoubleArgumentType.getDouble(ctx, "radius"), DoubleArgumentType.getDouble(ctx, "precision"), BoolArgumentType.getBool(ctx, "cube"), BlockTypes.AIR.getDefaultState())
+                                        )
+                                        .then(Commands.argument("material", BlockStateArgument.block(context))
+                                                .executes(ctx ->
+                                                        mole(ctx, DoubleArgumentType.getDouble(ctx, "radius"), DoubleArgumentType.getDouble(ctx, "precision"), false, ForgeAdapter.adapt(BlockStateArgument.getBlock(ctx, "material").getState()))
+                                                ))
+                                        .then(Commands.argument("block", BlockPosArgument.blockPos())
+                                                .executes(ctx -> {
+                                                    ServerLevel level = ctx.getSource().getLevel();
+                                                    net.minecraft.world.level.block.state.BlockState state = level.getBlockState(BlockPosArgument.getBlockPos(ctx, "block"));
+                                                    return mole(ctx, DoubleArgumentType.getDouble(ctx, "radius"), DoubleArgumentType.getDouble(ctx, "precision"), false, ForgeAdapter.adapt(state));
+                                                })))))
         );
 
         dispatcher.register(Commands.literal("/ctrl")
@@ -222,17 +221,17 @@ public class Worldmole
                     return 1;
                 })
                 .then(Commands.argument("pos", BlockPosArgument.blockPos())
-                .executes(ctx -> {
-                    ctrl = Bp2V3(BlockPosArgument.getBlockPos(ctx, "pos"));
-                    ctx.getSource().sendSuccess(() -> Component.literal("Control point set to " + ctrl.toString()).withStyle(ChatFormatting.LIGHT_PURPLE), false);
-                    return 1;
-                }))
+                        .executes(ctx -> {
+                            ctrl = Bp2V3(BlockPosArgument.getBlockPos(ctx, "pos"));
+                            ctx.getSource().sendSuccess(() -> Component.literal("Control point set to " + ctrl.toString()).withStyle(ChatFormatting.LIGHT_PURPLE), false);
+                            return 1;
+                        }))
                 .then(Commands.argument("unset", StringArgumentType.string())
-                .executes(ctx -> {
-                    ctrl = null;
-                    ctx.getSource().sendSuccess(() -> Component.literal("Unset control point").withStyle(ChatFormatting.LIGHT_PURPLE), false);
-                    return 1;
-                })));
+                        .executes(ctx -> {
+                            ctrl = null;
+                            ctx.getSource().sendSuccess(() -> Component.literal("Unset control point").withStyle(ChatFormatting.LIGHT_PURPLE), false);
+                            return 1;
+                        })));
     }
 
     private void commonSetup(final FMLCommonSetupEvent event)
