@@ -67,6 +67,7 @@ description='''Just a world edit extension for making long ass "perfect" tunnels
 [[dependencies.worldmole]]
     modId="worldedit"
     mandatory=true
+    versionRange="7.2.15"
     ordering="NONE"
     side="BOTH"
 

@@ -5,6 +5,7 @@ import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import com.mojang.logging.LogUtils;
 import com.sk89q.worldedit.EditSession;
 import com.sk89q.worldedit.LocalSession;
@@ -15,7 +16,6 @@ import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.math.Vector3;
 import com.sk89q.worldedit.regions.Region;
 import com.sk89q.worldedit.session.SessionManager;
-import com.sk89q.worldedit.world.block.BlockState;
 import com.sk89q.worldedit.world.block.BlockTypes;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandBuildContext;
@@ -27,6 +27,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
@@ -61,18 +64,6 @@ public class Worldmole
     public static Vec3 ctrl = null;
 
     public static WorldEdit we = null;
-
-//    public static final RenderType GREEN_WIRE = RenderType.create("green_wire",
-//            DefaultVertexFormat.POSITION_COLOR,
-//            VertexFormat.Mode.LINES,
-//            256, false, true,
-//            RenderType.CompositeState.builder()
-//                    .setShaderState(new RenderStateShard.ShaderStateShard())
-    ////                    .setLineState(new RenderStateShard.LineStateShard())
-//                    .setLayeringState(new RenderStateShard.LayeringStateShard("green_wire", () -> {}, () -> {}))
-//                    .setTransparencyState(new RenderStateShard.TransparencyStateShard("green_wire", () -> {}, () -> {}))
-//                    .createCompositeState(true)
-//    );
 
     public static int mole(CommandContext<CommandSourceStack> ctx, double radius, double precision, boolean cube, BlockState state) {
         LocalSession ls;
@@ -130,13 +121,13 @@ public class Worldmole
 
         double lx = 0, ly = 0, lz = 0;
 
-        boolean notAirState = state != BlockTypes.AIR.getDefaultState();
-
         try {
 
             EditSession es = ls.createEditSession(p);
             int count = 0;
             double dist = precision, step = precision/10d;
+
+            com.sk89q.worldedit.world.block.BlockState adpState = ForgeAdapter.adapt(state);
 
             for (double t = precision; t < 1.0; t += step) {
                 double txt = 2 * (1d - t) * t,
@@ -154,8 +145,8 @@ public class Worldmole
                             for (double l = -radius; l <= radius; l++)
                                 if (cube || Math.sqrt(j * j + k * k + l * l) < radius) {
                                     BlockPos pos = new BlockPos((int) (bx + x + j), (int) (by + y + k), (int) (bz + z + l));
-                                    if (notAirState || !level.getBlockState(pos).isAir()) {
-                                        es.setBlock(BlockVector3.at(pos.getX(), pos.getY(), pos.getZ()), state);
+                                    if (!state.equals(level.getBlockState(pos))) {
+                                        es.setBlock(BlockVector3.at(pos.getX(), pos.getY(), pos.getZ()), adpState);
                                         count++;
                                     }
                                 }
@@ -189,29 +180,30 @@ public class Worldmole
         dispatcher.register(Commands.literal("/mole")
                 .requires(cs -> cs.hasPermission(2)) // 2 = OP level
                 .then(Commands.argument("radius", DoubleArgumentType.doubleArg(1))
-                        .executes(ctx ->
-                                mole(ctx, DoubleArgumentType.getDouble(ctx, "radius"), .1, false, BlockTypes.AIR.getDefaultState())
-                        )
-                        .then(Commands.argument("precision", DoubleArgumentType.doubleArg(0.0001))
-                                .executes(ctx ->
-                                        mole(ctx, DoubleArgumentType.getDouble(ctx, "radius"), DoubleArgumentType.getDouble(ctx, "precision"), false, BlockTypes.AIR.getDefaultState())
-                                )
-                                .then(Commands.argument("cube", BoolArgumentType.bool())
-                                        .executes(ctx ->
-                                                mole(ctx, DoubleArgumentType.getDouble(ctx, "radius"), DoubleArgumentType.getDouble(ctx, "precision"), BoolArgumentType.getBool(ctx, "cube"), BlockTypes.AIR.getDefaultState())
-                                        )
-                                        .then(Commands.argument("material", BlockStateArgument.block(context))
-                                                .executes(ctx ->
-                                                        mole(ctx, DoubleArgumentType.getDouble(ctx, "radius"), DoubleArgumentType.getDouble(ctx, "precision"), false, ForgeAdapter.adapt(BlockStateArgument.getBlock(ctx, "material").getState()))
-                                                ))
-                                        .then(Commands.argument("block", BlockPosArgument.blockPos())
-                                                .executes(ctx -> {
-                                                    ServerLevel level = ctx.getSource().getLevel();
-                                                    net.minecraft.world.level.block.state.BlockState state = level.getBlockState(BlockPosArgument.getBlockPos(ctx, "block"));
-                                                    return mole(ctx, DoubleArgumentType.getDouble(ctx, "radius"), DoubleArgumentType.getDouble(ctx, "precision"), false, ForgeAdapter.adapt(state));
-                                                })))))
+                .executes(ctx ->
+                    mole(ctx, DoubleArgumentType.getDouble(ctx, "radius"), .1, false, Blocks.AIR.defaultBlockState())
+                )
+                .then(Commands.argument("precision", DoubleArgumentType.doubleArg(0.0001))
+                .executes(ctx ->
+                    mole(ctx, DoubleArgumentType.getDouble(ctx, "radius"), DoubleArgumentType.getDouble(ctx, "precision"), false, Blocks.AIR.defaultBlockState())
+                )
+                .then(Commands.argument("cube", BoolArgumentType.bool())
+                .executes(ctx ->
+                    mole(ctx, DoubleArgumentType.getDouble(ctx, "radius"), DoubleArgumentType.getDouble(ctx, "precision"), BoolArgumentType.getBool(ctx, "cube"), Blocks.AIR.defaultBlockState())
+                )
+                .then(Commands.argument("material", BlockStateArgument.block(context))
+                .executes(ctx ->
+                    mole(ctx, DoubleArgumentType.getDouble(ctx, "radius"), DoubleArgumentType.getDouble(ctx, "precision"), BoolArgumentType.getBool(ctx, "cube"), BlockStateArgument.getBlock(ctx, "material").getState())
+                ))
+                .then(Commands.argument("block", BlockPosArgument.blockPos())
+                .executes(ctx -> {
+                    ServerLevel level = ctx.getSource().getLevel();
+                    net.minecraft.world.level.block.state.BlockState state = level.getBlockState(BlockPosArgument.getBlockPos(ctx, "block"));
+                    return mole(ctx, DoubleArgumentType.getDouble(ctx, "radius"), DoubleArgumentType.getDouble(ctx, "precision"), BoolArgumentType.getBool(ctx, "cube"), state);
+                })))))
         );
 
+        final var fts = new SuggestionsBuilder("unset", 0).buildFuture();
         dispatcher.register(Commands.literal("/ctrl")
                 .requires(cs -> cs.hasPermission(2))
                 .executes(ctx -> {
@@ -227,6 +219,7 @@ public class Worldmole
                             return 1;
                         }))
                 .then(Commands.argument("unset", StringArgumentType.string())
+                        .suggests((ctx, builder) -> fts)
                         .executes(ctx -> {
                             ctrl = null;
                             ctx.getSource().sendSuccess(() -> Component.literal("Unset control point").withStyle(ChatFormatting.LIGHT_PURPLE), false);
@@ -238,7 +231,7 @@ public class Worldmole
     {
         we = WorldEdit.getInstance();
         if (we == null)
-            throw new RuntimeException("World edit is not loaded or present");
+            throw new RuntimeException("World edit is not loaded or isn't present");
         // Some common setup code
         LOGGER.info("WorldMole loaded");
     }
