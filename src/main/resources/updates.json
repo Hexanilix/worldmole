@@ -2,10 +2,11 @@
   "homepage": "https://www.curseforge.com/minecraft/mc-mods/world-mole",
   "1.20.1": {
     "0.0.1": "lalal",
-    "0.0.2": "qol"
+    "0.0.2": "qol",
+    "1.0.0": "release"
   },
   "promos": {
-    "1.20.1-latest": "0.0.2",
-    "1.20.1-recommended": "0.02"
+    "1.20.1-latest": "1.0.0",
+    "1.20.1-recommended": "1.0.0"
   }
 }

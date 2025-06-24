@@ -124,7 +124,7 @@ public class Worldmole
         try {
 
             EditSession es = ls.createEditSession(p);
-            int count = 0;
+            int count = 0, r = (int) Math.ceil(radius);
             double dist = precision, step = precision/10d;
 
             com.sk89q.worldedit.world.block.BlockState adpState = ForgeAdapter.adapt(state);
@@ -133,23 +133,26 @@ public class Worldmole
                 double txt = 2 * (1d - t) * t,
                         x = txt * cx + (t * t) * dx,
                         y = txt * cy + (t * t) * dy,
-                        z = txt * cz + (t * t) * dz;
+                        z = txt * cz + (t * t) * dz,
+                        radiusSq = radius * radius,
+                        presSq = precision * precision;
 
                 lx -= x;
                 ly -= y;
                 lz -= z;
 
-                if ((dist += Math.sqrt(lx*lx + ly*ly + lz*lz)) >= precision) {
-                    for (double j = -radius; j <= radius; j++)
-                        for (double k = -radius; k <= radius; k++)
-                            for (double l = -radius; l <= radius; l++)
-                                if (cube || Math.sqrt(j * j + k * k + l * l) < radius) {
-                                    BlockPos pos = new BlockPos((int) (bx + x + j), (int) (by + y + k), (int) (bz + z + l));
+                if ((dist += lx*lx + ly*ly + lz*lz) >= presSq) {
+                    for (int j = -r; j <= r; j++)
+                        for (int k = -r; k <= r; k++)
+                            for (int l = -r; l <= r; l++)
+                                if (cube || (j * j + k * k + l * l < radiusSq)) {
+                                    BlockPos pos = BlockPos.containing(bx + x + j, by + y + k, bz + z + l);
                                     if (!state.equals(level.getBlockState(pos))) {
                                         es.setBlock(BlockVector3.at(pos.getX(), pos.getY(), pos.getZ()), adpState);
                                         count++;
                                     }
                                 }
+
                     dist = 0d;
                 }
 
